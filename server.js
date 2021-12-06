@@ -1,4 +1,5 @@
 const express = require('express');
+const cluster = require('cluster');
 
 const app = express();
 
@@ -13,7 +14,7 @@ function delay(duration) {
 }
 
 app.get('/', (_, response) => {
-  response.send('Performance example');
+  response.send(`Performance example. Pid: ${process.pid}`);
 });
 
 // This endpoint will only answer after 9 seconds, because
@@ -22,7 +23,19 @@ app.get('/', (_, response) => {
 // least 18 seconds
 app.get('/timer', (_, response) => {
   delay(9000);
-  response.send('Hi');
+  response.send(`Hi! ${process.pid}`);
 });
 
-app.listen(3000);
+// Start 2 clusters. This makes it so that 2 parallel requests
+// to the /timer endpoint won't block each other anymore. But,
+// a 3rd parallel requests will still have to wait until one
+// of the first two requests is finished, since we are only
+// creating 2 forks.
+if (cluster.isMaster) {
+  console.log('Master has been started');
+  cluster.fork();
+  cluster.fork();
+} else {
+  console.log('Worker has been started');
+  app.listen(3000);
+}
